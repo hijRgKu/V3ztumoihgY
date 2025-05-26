@@ -1,0 +1,4 @@
+workspace: Contentful.xcworkspace
+xcodeproj: Contentful.xcodeproj
+scheme: "Contentful_iOS"
+
