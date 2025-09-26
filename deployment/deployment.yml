@@ -1,0 +1,163 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: migration-env
+data:
+  ORCHESTRATOR_TYPE: kubernetes
+  DIND_IMAGE: ghcr.io/hpcclab/nims/migration-dind:main
+  PIND_IMAGE: ghcr.io/hpcclab/nims/migration-pind:main
+  AMBASSADOR_IMAGE: ghcr.io/hpcclab/nims/migration-ambassador:main
+  FRONTMAN_IMAGE: ghcr.io/hpcclab/nims/frontman:main
+  IMAGE_PULL_POLICY: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: migration-operator
+  labels:
+    app: migration-operator
+  annotations:
+    migration-bypass: 'True'
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: migration-operator
+  template:
+    metadata:
+      labels:
+        app: migration-operator
+      annotations:
+        migration-bypass: 'True'
+    spec:
+      serviceAccountName: migration-coordinator
+      containers:
+        - name: operator
+          image: ghcr.io/hpcclab/nims/migration-operator:main
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: migration-env
+          startupProbe:
+            httpGet:
+              port: 8080
+              path: /healthz
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: /healthz
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: migration-coordinator
+  labels:
+    app: migration-coordinator
+  annotations:
+    migration-bypass: 'True'
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: migration-coordinator
+  template:
+    metadata:
+      labels:
+        app: migration-coordinator
+      annotations:
+        migration-bypass: 'True'
+    spec:
+      serviceAccountName: migration-coordinator
+      containers:
+        - name: coordinator
+          image: ghcr.io/hpcclab/nims/migration-coordinator:main
+          ports:
+            - containerPort: 5000
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: migration-env
+          startupProbe:
+            httpGet:
+              port: 5000
+              path: /healthcheck
+          livenessProbe:
+            httpGet:
+              port: 5000
+              path: /healthcheck
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: migration-coordinator
+  labels:
+    app: migration-coordinator
+spec:
+  type: NodePort
+  selector:
+    app: migration-coordinator
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+      nodePort: 30001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: migration-interceptor
+  labels:
+    app: migration-interceptor
+  annotations:
+    migration-bypass: 'True'
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: migration-interceptor
+  template:
+    metadata:
+      labels:
+        app: migration-interceptor
+      annotations:
+        migration-bypass: 'True'
+    spec:
+      serviceAccountName: migration-coordinator
+      containers:
+        - name: interceptor
+          image: ghcr.io/hpcclab/nims/migration-interceptor:main
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: migration-env
+          startupProbe:
+            httpGet:
+              port: 8080
+              path: /healthz
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: /healthz
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: migration-interceptor
+  labels:
+    app: migration-interceptor
+spec:
+  type: NodePort
+  selector:
+    app: migration-interceptor
+  ports:
+    - protocol: TCP
+      port: 30000
+      targetPort: 30000
+      nodePort: 30000
