@@ -1,0 +1,31 @@
+---
+image: images/logo.png
+listing:
+  - id: content
+    contents: 
+    - "posts/*/index.qmd"
+    feed: true
+    sort: "date desc"
+    type: grid
+    categories: true
+    sort-ui: true
+    filter-ui: true
+    image-placeholder: images/twitter-card.png
+    fields: [image, date, title, categories]
+page-layout: full
+title-block-banner: false
+toc: false
+---
+
+::: top-story-img
+![](images/twitter-card.png){fig-align="center" width="377"}
+:::
+
+::::: content-container
+:::: listing-block
+## Resources
+
+::: {#content}
+:::
+::::
+:::::
